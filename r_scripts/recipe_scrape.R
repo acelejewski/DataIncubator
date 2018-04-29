@@ -27,8 +27,6 @@ urls <- str_c("https://www.brewtoad.com/recipes?page=", 1:pages_n, "&sort=rank&n
 pb <- progress_estimated(length(urls))
 recipes_brewtoad  <- map(urls, read_recipes, .pb = pb)
 recipes_brewtoad <- recipes_brewtoad %>% bind_rows()
-
-
 recipe_list <- vector("list", nrow(recipes_brewtoad))
 
 
