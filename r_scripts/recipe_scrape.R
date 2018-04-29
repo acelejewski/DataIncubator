@@ -1,12 +1,11 @@
-#recepeie scrape
+#recpieie scrape
 library(tidyverse)
 library(rvest)
 library(stringr)
 library(parallel)
-library(beepr)
 
 
-
+#Scrape =============================================
 #determine nubmer urls by term
 term <- "clone"
 
@@ -30,7 +29,7 @@ recipes_brewtoad <- recipes_brewtoad %>% bind_rows()
 recipe_list <- vector("list", nrow(recipes_brewtoad))
 
 
-#scrape 
+#scrape recepies into list
 time_total <- Sys.time()
 for (i  in 1:length(recipe_list)){
   
@@ -58,43 +57,73 @@ for (i  in 1:length(recipe_list)){
 }
 
 
-
-save(recipe_list, file = "recipes_clones_brewtoad")
+#save list
+#save(recipe_list, file = "data/recipes_list_brewtoad.rds")
 
 
 names(recipe_list[[1]])[1]
 
 map(recipe_list, function(x){x[1] %>% names }) %>% unlist
 
-a <- recipe_list[[1]][1] %>% names
 
 
-readRDS("recipes_clones_brewtoad.rds")
-
-
-recipe_list[[1]][[1]][[1]]$Name  <- a
+#Tidy    ===================================================
+recipe_list <- readRDS("data/recipes_list_brewtoad.rds")
 
 
 
+#wrangle data for malt hops, yeast
 
 
-readRDS(recipes_list_brewtoad)
+# * wrangle hops ============
+hops <- recipe_list %>% map(1) %>% map(2)
+
+
+#other paramters
+reciepe_name <- recipe_list %>% map(names) %>% map(1)
+batch_size <- recipe_list %>% map(2) %>% map(1) %>% unlist
+OG <- recipe_list %>% map(3) %>% map(1) %>% unlist
+FG <- recipe_list %>% map(3) %>% map(2) %>% unlist
+IBU <- recipe_list %>% map(3) %>% map(3) %>% unlist
+
+#HOP df descriptors
+hops <- map(hops, function(x){mutate(x, Hop = as.character(Hop))}  )
+hops  <- map2(hops, reciepe_name, function(x, y){mutate(x, Clone_of  =  y)  }  )
+hops <- map2(hops, batch_size, function(x, y){mutate(x, Batch_Size = y) }  )
+hops <- map2(hops, IBU, function(x, y){mutate(x, IBU = y) }  )
+
+hops <- bind_rows(hops) %>% as_tibble
 
 
 
+#are ounces and grams the only units?
+(hops$Amount[str_detect(hops$Amount, "oz")] %>% length + hops$Amount[str_detect(hops$Amount, "g")] %>% length()) == nrow(hops)
+
+#are gals and Ls the only batch size units?
+(hops$Batch_Size  [str_detect(hops$Batch_Size  , "gal")] %>% length + hops$Batch_Size  [str_detect(hops$Batch_Size  , "L")] %>% length()) == nrow(hops)
 
 
+#partial tidy of hop additon data
+hops <- hops %>% 
+  mutate(is_ounces = if_else(str_detect(.$Amount, "oz"), TRUE, FALSE)) %>%
+  mutate(Amount = str_extract(.$Amount, "[:digit:]+.[:digit:]+") %>% as.numeric()) %>%
+  mutate(Amount = if_else(.$is_ounces ==TRUE, .$Amount, .$Amount* 0.035274 )) %>% #convet weight to ounces
+  mutate(is_gal = if_else(str_detect(.$Batch_Size, "gal"), TRUE, FALSE)) %>%
+  mutate(Batch_Size = str_extract(.$Batch_Size   , "[:digit:]+.[:digit:]+") %>% as.numeric()) %>%
+  mutate(Batch_Size = if_else(.$is_gal ==TRUE, .$Batch_Size, .$Batch_Size* 0.264172 )) %>% #convet voliume to ounces
+  separate(Hop, into = c("Hop", "Hop_Country"), sep = " \\(" ) %>% 
+  mutate(Hop_Country = str_remove(.$Hop_Country, "\\)")) %>%
+  select(-is_ounces, -is_gal) %>% View()
 
-malts <- map(recipe_list, function(x){x[[1]][[1]]})
-hops <- map(recipe_list, function(x){x[[1]][[2]]})
+write_csv(hops, "data/hops.csv")  
 
-map(hops, function(x){x = })
+# * wrangel malts ==========         
+         
+malt <- recipe_list %>% map(1) %>% map(1)
 
+malt  <- map2(malt, reciepe_name, function(x, y){mutate(x, Clone_of  =  y)  }  )
+malt  <- map2(malt, OG, function(x, y){mutate(x, OG  =  y)  }  )
+malt  <- map2(malt, FG, function(x, y){mutate(x, FG  =  y)  }  )
 
-
-bind_rows(hops) 
-bind_rows(malts)
-
-b[1]
-
-str(recipe_list)
+hops <- map2(hops, batch_size, function(x, y){mutate(x, Batch_Size = y) }  )
+hops <- map2(hops, IBU, function(x, y){mutate(x, IBU = y) }  )
