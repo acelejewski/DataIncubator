@@ -67,8 +67,20 @@ map(recipe_list, function(x){x[1] %>% names }) %>% unlist
 
 
 
+
+
 #Tidy    ===================================================
 recipe_list <- readRDS("data/recipes_list_brewtoad.rds")
+
+
+
+#other recipe paramters
+reciepe_name <- recipe_list %>% map(names) %>% map(1)
+batch_size <- recipe_list %>% map(2) %>% map(1) %>% unlist
+OG <- recipe_list %>% map(3) %>% map(1) %>% unlist
+FG <- recipe_list %>% map(3) %>% map(2) %>% unlist
+IBU <- recipe_list %>% map(3) %>% map(3) %>% unlist
+SRM <- recipe_list %>% map(3) %>% map(4) %>% unlist
 
 
 
@@ -79,18 +91,14 @@ recipe_list <- readRDS("data/recipes_list_brewtoad.rds")
 hops <- recipe_list %>% map(1) %>% map(2)
 
 
-#other paramters
-reciepe_name <- recipe_list %>% map(names) %>% map(1)
-batch_size <- recipe_list %>% map(2) %>% map(1) %>% unlist
-OG <- recipe_list %>% map(3) %>% map(1) %>% unlist
-FG <- recipe_list %>% map(3) %>% map(2) %>% unlist
-IBU <- recipe_list %>% map(3) %>% map(3) %>% unlist
+
 
 #HOP df descriptors
 hops <- map(hops, function(x){mutate(x, Hop = as.character(Hop))}  )
 hops  <- map2(hops, reciepe_name, function(x, y){mutate(x, Clone_of  =  y)  }  )
 hops <- map2(hops, batch_size, function(x, y){mutate(x, Batch_Size = y) }  )
 hops <- map2(hops, IBU, function(x, y){mutate(x, IBU = y) }  )
+hops <- map2(hops, SRM, function(x, y){mutate(x, SRM = y) }  )
 
 hops <- bind_rows(hops) %>% as_tibble
 
@@ -113,7 +121,7 @@ hops <- hops %>%
   mutate(Batch_Size = if_else(.$is_gal ==TRUE, .$Batch_Size, .$Batch_Size* 0.264172 )) %>% #convet voliume to ounces
   separate(Hop, into = c("Hop", "Hop_Country"), sep = " \\(" ) %>% 
   mutate(Hop_Country = str_remove(.$Hop_Country, "\\)")) %>%
-  select(-is_ounces, -is_gal) %>% View()
+  select(-is_ounces, -is_gal)
 
 write_csv(hops, "data/hops.csv")  
 
@@ -124,6 +132,59 @@ malt <- recipe_list %>% map(1) %>% map(1)
 malt  <- map2(malt, reciepe_name, function(x, y){mutate(x, Clone_of  =  y)  }  )
 malt  <- map2(malt, OG, function(x, y){mutate(x, OG  =  y)  }  )
 malt  <- map2(malt, FG, function(x, y){mutate(x, FG  =  y)  }  )
+malt <- map2(malt, batch_size, function(x, y){mutate(x, Batch_Size = y) }  )
+malt <- map2(malt, SRM, function(x, y){mutate(x, SRM = y) }  )
+malt <- map2(malt, IBU, function(x, y){mutate(x, IBU = y) }  )
 
-hops <- map2(hops, batch_size, function(x, y){mutate(x, Batch_Size = y) }  )
-hops <- map2(hops, IBU, function(x, y){mutate(x, IBU = y) }  )
+malt <- bind_rows(malt) %>% as_tibble()
+
+
+
+malt <- malt %>% 
+  separate(Amount, into = c("Amount", "Amount_Units"), "\\s") %>%
+  mutate(Amount = as.numeric(Amount)) %>%
+  mutate(Amount = if_else((Amount_Units == "oz"), Amount* 0.0625, 
+                          if_else((Amount_Units == "g"), Amount * 0.00220462,
+                                  if_else((Amount_Units == "kg"), Amount* 2.20462, Amount)))) %>%
+  mutate(is_gal = if_else(str_detect(.$Batch_Size, "gal"), TRUE, FALSE)) %>%
+  mutate(Batch_Size = str_extract(.$Batch_Size   , "[:digit:]+.[:digit:]+") %>% as.numeric()) %>%
+  mutate(Batch_Size = if_else(.$is_gal ==TRUE, .$Batch_Size, .$Batch_Size* 0.264172 )) %>% #convet voliume to ounces
+  separate(Fermentable, into = c("Fermentable", "Fermentable_Country"), sep = " \\(" ) %>% 
+  mutate(Fermentable_Country = str_remove(.$Fermentable_Country, "\\)")) %>%
+  select(-Amount_Units, -is_gal) 
+
+
+write_csv(malt, "data/malt.csv")  
+
+
+#* warangel yeast  
+
+yeast <-  recipe_list %>% map(1) %>% map(3) %>% map(2) %>% map(as_tibble) 
+yeast <- map(yeast, function(x){mutate(x, value = as.character(value))}  )
+
+yeast <-  map(yeast, function(x) {x$value}) 
+
+
+map(yeast, function(x){is.na(x)}) %>% unlist
+
+
+
+a <ind_rows(yeast) %>% unlist
+
+
+yeast  <- map2(yeast, reciepe_name, function(x, y){mutate(x, Clone_of  =  y)  }  )
+
+is_null<- map(yeast, is.na) %>% unlist
+
+is_null[is_null == TRUE]
+
+ <- yeast %>% map(nrow) %>% unlist 
+
+reciepe_name[which(a > 1)]
+yeast[which(a > 1)]
+
+
+
+
+
+yeast %>% bind_rows()
